@@ -9,10 +9,28 @@ import java.util.Random;
 
 public class Main {
     public static final Map<Integer, Integer> sizeToFreq = new HashMap<>();
+    public static Thread threadPrint;
 
     public static void main(String[] args) throws InterruptedException {
         int threadCount = 1000;
         Thread[] threads = new Thread[threadCount];
+
+        threadPrint = new Thread(() -> {
+            while (!Thread.interrupted()) {
+                synchronized (sizeToFreq) {
+                    try {
+                        sizeToFreq.wait();
+                        if (!sizeToFreq.isEmpty()) {
+                            printMax();
+                        }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        });
+        threadPrint.start();
 
         for (int i = 0; i < threadCount; i++) {
             threads[i] = new Thread(() -> {
@@ -21,6 +39,7 @@ public class Main {
 
                 synchronized (sizeToFreq) {
                     sizeToFreq.merge(countR, 1, (oldValue, newValue) -> oldValue + newValue);
+                    sizeToFreq.notify();
                 }
             });
             threads[i].start();
@@ -29,7 +48,11 @@ public class Main {
         for (Thread thread : threads) {
             thread.join();
         }
-        printResult();
+
+        threadPrint.interrupt();
+        threadPrint.join();
+
+        printResultFinal();
     }
 
     public static String generateRoute(String letters, int length) {
@@ -51,11 +74,13 @@ public class Main {
         return count;
     }
 
-    public static void printResult() {
+    public static void printResultFinal() {
         if (sizeToFreq.isEmpty()) {
             System.out.println("Нет данных для обработки");
             return;
         }
+        System.out.println();
+        System.out.println("Финальные данные !!! ");
         Map.Entry<Integer, Integer> max = Collections.max(sizeToFreq.entrySet(),
                 Map.Entry.comparingByValue());
         System.out.println("Самое частое количество повторений " +
@@ -69,6 +94,14 @@ public class Main {
                                 " (" + entry.getValue() + ") Раз ");
                     }
                 });
+
+    }
+
+    public static void printMax() {
+        Map.Entry<Integer, Integer> max = Collections.max(sizeToFreq.entrySet(),
+                Map.Entry.comparingByValue());
+        System.out.println("Текущий промежуточный лидер  " +
+                max.getKey() + " Встретилось " + max.getValue() + " раз ");
 
     }
 }
